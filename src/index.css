@@ -1,0 +1,51 @@
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(0, 0, 0, 0.87);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.btn {
+  background: #e17b94ff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  display: inline-block;
+}
+
+/* Hover and active states */
+.btn:hover {
+  background: #a75c6f;
+  transform: translateY(-2px);
+}
+
+.btn:active {
+  background: #e17b94ff;
+  transform: translateY(0);
+}
+
+/* Variant for neutral buttons */
+.btn--light {
+  background: #f2f2f2;
+  color: #000;
+}
+
+.btn--light:hover {
+  background: #e2e2e2;
+}
+
+/* Size variants */
+.btn--sm { padding: 8px 16px; font-size: 0.9rem; }
+.btn--lg { padding: 14px 28px; font-size: 1.1rem; }
+
+
