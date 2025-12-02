@@ -3,10 +3,11 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 
 type Photo = { id: string; dataURL: string };
 
-const RIGHT_COL_W = 440;   // gallery column width
-const THUMB_MAX   = 360;   // max width for square thumbs
-const CAM_MAX_W   = 640;   // max camera box width
-const CAM_FIXED_H = 560;   
+const RIGHT_COL_W = 440;
+const THUMB_MAX = 360;
+const CAM_MAX_W = 640;
+const CAM_FIXED_H = 560;
+const MOBILE_CAM_H = 360;
 
 export default function Booth() {
   const { templateId } = useParams<{ templateId: string }>();
@@ -23,11 +24,26 @@ export default function Booth() {
   const [limitReached, setLimitReached] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
 
-  // Stop camera tracks when leaving the page
+  // mobile layout state
+  const [isMobile, setIsMobile] = useState(false);
+
+  // detect mobile vs desktop
+  useEffect(() => {
+    function handleResize() {
+      if (typeof window !== "undefined") {
+        setIsMobile(window.innerWidth <= 768);
+      }
+    }
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // clean up camera on unmount
   useEffect(() => {
     return () => {
       const media = videoRef.current?.srcObject as MediaStream | null;
-      media?.getTracks().forEach(t => t.stop());
+      media?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
@@ -50,7 +66,7 @@ export default function Booth() {
 
   function stopCamera() {
     const media = videoRef.current?.srcObject as MediaStream | null;
-    media?.getTracks().forEach(t => t.stop());
+    media?.getTracks().forEach((t) => t.stop());
     if (videoRef.current) videoRef.current.srcObject = null;
     setStreaming(false);
   }
@@ -71,7 +87,7 @@ export default function Booth() {
 
     const dataURL = canvas.toDataURL("image/jpeg", 0.85);
 
-    setPhotos(prev => {
+    setPhotos((prev) => {
       const next = [...prev, { id: crypto.randomUUID(), dataURL }].slice(0, 4);
       if (next.length === 4) {
         stopCamera();
@@ -85,7 +101,7 @@ export default function Booth() {
     if (!streaming || photos.length >= 4) return;
     for (const n of [3, 2, 1] as const) {
       setCounting(n);
-      await new Promise(r => setTimeout(r, 700));
+      await new Promise((r) => setTimeout(r, 700));
     }
     setCounting(false);
     captureOnce();
@@ -98,7 +114,7 @@ export default function Booth() {
   }
 
   function toggleSelect(id: string) {
-    setSelected(prev => {
+    setSelected((prev) => {
       const i = prev.indexOf(id);
       if (i >= 0) {
         const copy = [...prev];
@@ -111,9 +127,11 @@ export default function Booth() {
   }
 
   function handleNext() {
-    const chosen = photos.filter(p => selected.includes(p.id));
+    const chosen = photos.filter((p) => selected.includes(p.id));
     nav(`/result/${id}`, { state: { photos: chosen } });
   }
+
+  const camHeight = isMobile ? MOBILE_CAM_H : CAM_FIXED_H;
 
   return (
     <div style={{ position: "relative", minHeight: "100dvh" }}>
@@ -136,14 +154,33 @@ export default function Booth() {
           zIndex: 5,
           display: "grid",
           placeItems: "center",
-          paddingTop: 16,
-          paddingBottom: 8,
+          paddingTop: 12,
+          paddingBottom: 6,
         }}
       >
         <Link to="/" aria-label="Back to menu" style={{ textDecoration: "none" }}>
-          <img src="/logo.png" alt="" style={{ width: 72, height: "auto", userSelect: "none" }} />
+          <img
+            src="/logo.png"
+            alt=""
+            style={{ width: 72, height: "auto", userSelect: "none" }}
+          />
         </Link>
-        <h2 style={{ margin: 6, color: "#111" }}>Welcome to the Photobooth!</h2>
+        <h2 style={{ margin: 6, color: "#111", fontSize: isMobile ? 18 : 20 }}>
+          Welcome to the Photobooth!
+        </h2>
+        {isMobile && (
+          <p
+            style={{
+              margin: 0,
+              marginBottom: 4,
+              fontSize: 16,
+              color: "#444",
+              textAlign: "center",
+            }}
+          >
+            Mobile mode: scroll down to see your gallery and pick your photos ✨
+          </p>
+        )}
       </header>
 
       {/* content */}
@@ -151,19 +188,24 @@ export default function Booth() {
         style={{
           fontFamily: "system-ui, sans-serif",
           minHeight: "calc(100dvh - 96px)",
-          padding: 24,
+          padding: 16,
+          paddingTop: 8,
           display: "flex",
           justifyContent: "center",
           alignItems: "flex-start",
+          overflowX: "hidden",
         }}
       >
         <div style={{ width: "100%", maxWidth: 1000, marginInline: "auto" }}>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: `minmax(360px, 1fr) ${RIGHT_COL_W}px`,
+              gridTemplateColumns: isMobile
+                ? "1fr"
+                : `minmax(360px, 1fr) ${RIGHT_COL_W}px`,
               gap: 16,
               alignItems: "start",
+              justifyItems: isMobile ? "center" : "stretch", 
             }}
           >
             {/* camera column */}
@@ -172,14 +214,16 @@ export default function Booth() {
                 display: "grid",
                 placeItems: "center",
                 padding: 8,
-                minWidth: 0, // allow column to shrink
+                minWidth: 0,
+                width: "100%",
+                maxWidth: CAM_MAX_W,
               }}
             >
-              <div style={{ position: "relative", width: "100%", maxWidth: CAM_MAX_W }}>
+              <div style={{ position: "relative", width: "100%" }}>
                 <div
                   style={{
                     width: "100%",
-                    height: CAM_FIXED_H, 
+                    height: camHeight,
                     background: "#000",
                     borderRadius: 12,
                     overflow: "hidden",
@@ -215,7 +259,15 @@ export default function Booth() {
               </div>
 
               {/* controls */}
-              <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div
+                style={{
+                  marginTop: 12,
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                  justifyContent: isMobile ? "center" : "flex-start",
+                }}
+              >
                 {!streaming ? (
                   <button onClick={startCamera}>Start camera</button>
                 ) : (
@@ -229,15 +281,35 @@ export default function Booth() {
                 </button>
               </div>
 
+              {isMobile && (
+                <p
+                  style={{
+                    marginTop: 10,
+                    fontSize: 16,
+                    color: "#555",
+                    textAlign: "center",
+                  }}
+                >
+                  After taking your shots, scroll down to see the gallery and select your top 3.
+                </p>
+              )}
+
               {error && <p style={{ color: "crimson", marginTop: 8 }}>Error: {error}</p>}
               {limitReached && (
-                <p style={{ marginTop: 16, fontWeight: 700, color: "#e17b94", textAlign: "center" }}>
+                <p
+                  style={{
+                    marginTop: 10,
+                    fontWeight: 700,
+                    color: "#e17b94",
+                    textAlign: "center",
+                  }}
+                >
                   📸 Limit reached! Pick your best 3.
                 </p>
               )}
             </section>
 
-            {/* gallery column (only this scrolls) */}
+            {/* gallery column */}
             <aside
               style={{
                 background: "#fff",
@@ -248,7 +320,9 @@ export default function Booth() {
                 minHeight: 160,
                 display: "flex",
                 flexDirection: "column",
-                minWidth: 0, // allow column to shrink
+                minWidth: 0,
+                width: "100%",
+                maxWidth: CAM_MAX_W, // 🔹 same max width as camera
               }}
             >
               <h3 style={{ margin: "4px 0 10px 0" }}>Gallery (tap to select up to 3)</h3>
@@ -256,7 +330,7 @@ export default function Booth() {
               <div
                 style={{
                   flex: 1,
-                  overflowY: "auto",   // only the gallery pane scrolls
+                  overflowY: "auto",
                   display: "flex",
                   flexDirection: "column",
                   gap: 10,
@@ -294,7 +368,12 @@ export default function Booth() {
                       <img
                         src={p.dataURL}
                         alt="shot"
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
                       />
                       {isSelected && (
                         <div

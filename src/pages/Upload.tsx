@@ -9,7 +9,6 @@ export default function Upload() {
   const { shots, setShots, reset } = useBooth();
   const nav = useNavigate();
 
-  // Start fresh when this page mounts OR template changes
   useEffect(() => {
     if (!tpl) return;
     reset(tpl.slots.length); 
@@ -30,7 +29,7 @@ export default function Upload() {
       next[i] = { id: crypto.randomUUID(), dataURL: url } as Shot;
       return next;
     });
-    // allow picking the same file again later
+
     inputEl.value = "";
   }
 
@@ -147,7 +146,6 @@ export default function Upload() {
             style={{
               width: "100%",
               display: "block",
-              // 👇 these 3 lines are the important bits
               position: "relative",
               zIndex: 2,
               pointerEvents: "none",

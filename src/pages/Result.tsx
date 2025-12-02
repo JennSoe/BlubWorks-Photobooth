@@ -1,4 +1,3 @@
-// src/pages/Result.tsx
 import { useEffect, useMemo, useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { templates } from "../components/template";
@@ -158,7 +157,6 @@ export default function Result() {
   );
 }
 
-// utils
 function loadImg(src: string) {
   return new Promise<HTMLImageElement>((res, rej) => {
     const i = new Image();

@@ -20,7 +20,7 @@ export default function Select() {
         }}
       />
 
-      {/* clickable logo → home */}
+      {/* clickable logo */}
       <button
         onClick={() => nav("/")}
         aria-label="Back to landing"
@@ -65,13 +65,13 @@ export default function Select() {
               ⟨
             </ArrowButton>
 
-            {/* preview box (keeps strip fully visible) */}
+            {/* preview box */}
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                height: "min(78vh, 560px)", // adjust to taste
+                height: "min(78vh, 560px)",
                 flex: "1 1 0",
               }}
             >
@@ -79,7 +79,7 @@ export default function Select() {
                 src={t.thumb || t.frame}
                 alt={t.name}
                 style={{
-                  height: "90%",           // shrink/grow entire strip
+                  height: "90%",          
                   width: "auto",
                   objectFit: "contain",
                   display: "block",
@@ -127,7 +127,6 @@ export default function Select() {
   );
 }
 
-/* ---------------- helpers area ---------------- */
 
 const btnPrimary: React.CSSProperties = {
   background: "#e17b94",
@@ -171,7 +170,6 @@ const arrowBase: React.CSSProperties = {
   transition: "box-shadow .2s ease, transform .15s ease",
 };
 
-/** Round arrow with pink glow on hover/focus, small press scale on active */
 function ArrowButton({
   label,
   onClick,
