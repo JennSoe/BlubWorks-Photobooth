@@ -13,8 +13,8 @@ export const templates: Template[] = [
   {
     id: "photostrip_1",
     name: "BlubWorks Pokemon",
-    frame: "/public/photocard_1.png",
-    thumb: "/public/photocard_1.png",
+    frame: "/photocard_1.png",
+    thumb: "/photocard_1.png",
     size: { w: 900, h: 2700 },
     shots: 3,
 
