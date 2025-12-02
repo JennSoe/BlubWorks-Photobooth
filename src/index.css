@@ -23,7 +23,6 @@
   display: inline-block;
 }
 
-/* Hover and active states */
 .btn:hover {
   background: #a75c6f;
   transform: translateY(-2px);
@@ -34,7 +33,6 @@
   transform: translateY(0);
 }
 
-/* Variant for neutral buttons */
 .btn--light {
   background: #f2f2f2;
   color: #000;
@@ -44,7 +42,6 @@
   background: #e2e2e2;
 }
 
-/* Size variants */
 .btn--sm { padding: 8px 16px; font-size: 0.9rem; }
 .btn--lg { padding: 14px 28px; font-size: 1.1rem; }
 

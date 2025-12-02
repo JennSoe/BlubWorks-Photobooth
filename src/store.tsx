@@ -19,7 +19,6 @@ export function BoothProvider({ children }: { children: React.ReactNode }) {
   const [templateId, setTemplateId] = useState<string>();
   const [shots, _setShots] = useState<(Shot | null)[]>([]);
 
-  // stable function identities
   const setShots = useCallback((
     next: ((xs: (Shot | null)[]) => (Shot | null)[]) | (Shot | null)[]
   ) => {
