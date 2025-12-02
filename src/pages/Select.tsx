@@ -127,7 +127,7 @@ export default function Select() {
   );
 }
 
-/* ---------------- styles & small helpers ---------------- */
+/* ---------------- helpers area ---------------- */
 
 const btnPrimary: React.CSSProperties = {
   background: "#e17b94",

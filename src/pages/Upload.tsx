@@ -1,4 +1,3 @@
-// src/pages/Upload.tsx
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { templates } from "../components/template";
 import { useEffect, useMemo } from "react";
@@ -13,9 +12,7 @@ export default function Upload() {
   // Start fresh when this page mounts OR template changes
   useEffect(() => {
     if (!tpl) return;
-    reset(tpl.slots.length); // creates [(null) x slots]
-    // IMPORTANT: don't include `reset` to avoid re-running due to function identity changes elsewhere
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    reset(tpl.slots.length); 
   }, [tpl?.id]);
 
   if (!tpl) {
