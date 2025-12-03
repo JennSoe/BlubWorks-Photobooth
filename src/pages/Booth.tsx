@@ -24,10 +24,8 @@ export default function Booth() {
   const [limitReached, setLimitReached] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
 
-  // mobile layout state
   const [isMobile, setIsMobile] = useState(false);
 
-  // detect mobile vs desktop
   useEffect(() => {
     function handleResize() {
       if (typeof window !== "undefined") {
@@ -39,7 +37,6 @@ export default function Booth() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // clean up camera on unmount
   useEffect(() => {
     return () => {
       const media = videoRef.current?.srcObject as MediaStream | null;

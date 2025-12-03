@@ -65,7 +65,7 @@ export default function Upload() {
         <Link to="/" aria-label="Back to menu" style={{ textDecoration: "none" }}>
           <img src="/logo.png" alt="" style={{ width: 72, height: "auto", userSelect: "none" }} />
         </Link>
-        <h2 style={{ margin: 6, color: "#111" }}>Upload your photos ✨</h2>
+        <h2 style={{ margin: 6, color: "#111" }}>Tap on the Preview Boxes to Upload your photos ✨</h2>
       </header>
 
       {/* content */}
