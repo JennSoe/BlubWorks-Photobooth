@@ -9,6 +9,9 @@ type LocationState = { photos?: Photo[] };
 
 const PREVIEW_MAX_W = 280; 
 const PREVIEW_MAX_H = 900; 
+// The download is rendered at 2× the template size so photos keep their detail
+// when the strip is viewed full-screen or zoomed on a phone.
+const EXPORT_SCALE = 2;
 
 export default function Result() {
   const { templateId } = useParams<{ templateId: string }>();
@@ -34,10 +37,12 @@ export default function Result() {
     if (!tpl || !buildCanvasRef.current) return;
 
     const build = buildCanvasRef.current;
-    build.width = tpl.size.w;
-    build.height = tpl.size.h;
+    build.width = tpl.size.w * EXPORT_SCALE;
+    build.height = tpl.size.h * EXPORT_SCALE;
     const ctx = build.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
     let cancelled = false;
 
@@ -63,9 +68,10 @@ export default function Result() {
         if (rImg > rSlot) { dh = h; dw = h * rImg; dx = x - (dw - w) / 2; }
         else { dw = w; dh = w / rImg; dy = y - (dh - h) / 2; }
 
-        if (s.r) { roundRect(ctx, x, y, w, h, s.r); ctx.save(); ctx.clip(); }
-        ctx.drawImage(img, dx, dy, dw, dh);
-        if (s.r) ctx.restore();
+        const r = (s.r ?? 0) * EXPORT_SCALE;
+        if (r) { ctx.save(); roundRect(ctx, x, y, w, h, r); ctx.clip(); }
+        ctx.drawImage(downscaled(img, dw, dh), dx, dy, dw, dh);
+        if (r) ctx.restore();
         if (tpl.look === "vintage") applyVintage(ctx, x, y, w, h);
       }
 
@@ -75,12 +81,17 @@ export default function Result() {
 
       if (previewCanvasRef.current) {
         const prev = previewCanvasRef.current;
-        const scale = Math.min(PREVIEW_MAX_W / build.width, PREVIEW_MAX_H / build.height);
+        // Keep enough pixels for the on-screen size × the screen's pixel density
+        // (phones are 2–3×), otherwise the preview looks blurry. CSS sets the display size.
+        const cssScale = Math.min(PREVIEW_MAX_W / build.width, PREVIEW_MAX_H / build.height);
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        const scale = Math.min(1, cssScale * dpr);
         prev.width = Math.round(build.width * scale);
         prev.height = Math.round(build.height * scale);
-
         const pctx = prev.getContext("2d");
         if (pctx) {
+          pctx.imageSmoothingEnabled = true;
+          pctx.imageSmoothingQuality = "high";
           pctx.clearRect(0, 0, prev.width, prev.height);
           pctx.drawImage(build, 0, 0, prev.width, prev.height);
         }
@@ -94,12 +105,31 @@ export default function Result() {
   const vintage = tpl.look === "vintage";
 
   const download = () => {
-    const url = buildCanvasRef.current?.toDataURL("image/png");
-    if (!url) return;
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${tpl.name.replace(/\s+/g, "_")}.png`;
-    a.click();
+    const build = buildCanvasRef.current;
+    if (!build) return;
+    // High-quality JPEG on a white base: looks identical to PNG at this size but is
+    // ~10× smaller (a 2000×5400 PNG is ~16 MB, too heavy to save/share on phones).
+    const out = document.createElement("canvas");
+    out.width = build.width;
+    out.height = build.height;
+    const octx = out.getContext("2d");
+    if (!octx) return;
+    octx.fillStyle = "#fff";
+    octx.fillRect(0, 0, out.width, out.height);
+    octx.drawImage(build, 0, 0);
+    out.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${tpl.name.replace(/\s+/g, "_")}.jpg`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      },
+      "image/jpeg",
+      0.95,
+    );
   };
 
   return (
@@ -174,7 +204,7 @@ export default function Result() {
           {!noPhotos && (
             <div style={{ display: "grid", gap: 8, width: "min(100%, 320px)" }}>
               <button onClick={download} className="rs-btn" style={{ background: "var(--accent)", color: "var(--accent-ink)", boxShadow: "0 8px 18px var(--accent-shadow)" }}>
-                Download PNG
+                Download photo
               </button>
               <Link to={`/upload/${tpl.id}`} className="rs-btn" style={{ background: "transparent", color: "var(--ink)", border: "1px solid var(--glass-border)" }}>
                 Make another
@@ -187,6 +217,27 @@ export default function Result() {
       <canvas ref={buildCanvasRef} style={{ display: "none" }} />
     </main>
   );
+}
+
+/**
+ * Big phone photos (e.g. 4032px) shrunk in one step come out soft/aliased.
+ * Halve them in steps until they're within 2× of the target, then let the final draw finish.
+ */
+function downscaled(img: HTMLImageElement, targetW: number, targetH: number): CanvasImageSource {
+  let src: HTMLImageElement | HTMLCanvasElement = img;
+  let w = img.naturalWidth, h = img.naturalHeight;
+  while (w / 2 >= targetW && h / 2 >= targetH) {
+    w = Math.round(w / 2); h = Math.round(h / 2);
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const cx = c.getContext("2d");
+    if (!cx) break;
+    cx.imageSmoothingEnabled = true;
+    cx.imageSmoothingQuality = "high";
+    cx.drawImage(src, 0, 0, w, h);
+    src = c;
+  }
+  return src;
 }
 
 function loadImg(src: string) {

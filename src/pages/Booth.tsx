@@ -13,6 +13,12 @@ export default function Booth() {
   const id = templateId ?? "photostrip_1";
   const tpl = useMemo(() => templates.find((t) => t.id === id) ?? templates[0], [id]);
   const keep = tpl.slots.length;
+  // Shape of a photo frame on the strip (width / height). The viewfinder and the
+  // captured photo both use it, so what you frame is exactly what lands on the strip.
+  const shotAspect = useMemo(() => {
+    const s = tpl.slots[0];
+    return (s.w * tpl.size.w) / (s.h * tpl.size.h);
+  }, [tpl]);
   const vintage = tpl.look === "vintage";
   const nav = useNavigate();
   useThemeBody(tpl.theme);
@@ -41,7 +47,7 @@ export default function Booth() {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } },
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 }, aspectRatio: { ideal: 4 / 3 } },
         audio: false,
       });
       if (videoRef.current) {
@@ -66,16 +72,29 @@ export default function Booth() {
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
-    const w = video.videoWidth || 720;
-    const h = video.videoHeight || 960;
-    canvas.width = w;
-    canvas.height = h;
+    const vw = video.videoWidth || 1280;
+    const vh = video.videoHeight || 960;
+
+    // Centre-crop the camera frame to the strip's landscape frame shape
+    // (same crop the viewfinder shows with object-fit: cover).
+    let sw = vw, sh = vw / shotAspect;
+    if (sh > vh) { sh = vh; sw = vh * shotAspect; }
+    const sx = (vw - sw) / 2;
+    const sy = (vh - sh) / 2;
+
+    const outW = Math.round(Math.min(sw, 1600));
+    const outH = Math.round(outW / shotAspect);
+    canvas.width = outW;
+    canvas.height = outH;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.drawImage(video, 0, 0, w, h);
+    // Mirror like the preview, so the photo matches what you saw (selfie-style).
+    ctx.translate(outW, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, outW, outH);
 
-    const dataURL = canvas.toDataURL("image/jpeg", 0.85);
+    const dataURL = canvas.toDataURL("image/jpeg", 0.95);
     setFlash((f) => f + 1);
 
     // Side effects stay outside the state updater (React may run updaters more than once).
@@ -153,7 +172,7 @@ export default function Booth() {
         autoPlay
         playsInline
         muted
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: vintage ? VINTAGE_FILTER_CSS : undefined }}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transform: "scaleX(-1)", filter: vintage ? VINTAGE_FILTER_CSS : undefined }}
       />
       {vintage && (
         <>
@@ -188,10 +207,10 @@ export default function Booth() {
   );
 
   return (
-    <main style={{ ...pageStyle, ...themeVars(tpl.theme) }}>
+    <main style={{ ...pageStyle, ...themeVars(tpl.theme), ["--shot-ar" as string]: String(shotAspect) }}>
       <style>{`
         .booth-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr); gap: clamp(20px, 4vw, 48px); align-items: start; }
-        .booth-screen { position: relative; width: 100%; aspect-ratio: 4 / 3; background: #120609; border-radius: 14px; overflow: hidden; }
+        .booth-screen { position: relative; width: 100%; aspect-ratio: var(--shot-ar); background: #120609; border-radius: 14px; overflow: hidden; }
         .booth-idle { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 16px; color: #f6ece2; font-size: 14px; }
         .booth-count { position: absolute; inset: 0; display: grid; place-items: center; font: ${vintage ? "italic 400 clamp(80px, 22vw, 140px) var(--display)" : "900 96px var(--body)"};
           color: #fff8ee; text-shadow: 0 6px 24px rgba(0,0,0,.6); background: rgba(20,6,10,.25); animation: booth-pop .7s ease-out both; }
@@ -230,7 +249,7 @@ export default function Booth() {
 
         .booth-sheet { background: var(--panel); color: var(--panel-ink); border-radius: 24px; padding: clamp(18px, 3vw, 28px); box-shadow: 0 18px 55px rgba(0,0,0,.18); }
         .booth-thumbs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-        .booth-thumb { position: relative; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; padding: 0; cursor: pointer; border: none; background: #1f0d13; touch-action: manipulation;
+        .booth-thumb { position: relative; aspect-ratio: var(--shot-ar); border-radius: 10px; overflow: hidden; padding: 0; cursor: pointer; border: none; background: #1f0d13; touch-action: manipulation;
           box-shadow: 0 0 0 1px var(--row-border); transition: box-shadow .15s ease, transform .15s ease, opacity .15s ease; }
         .booth-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .booth-thumb.is-selected { box-shadow: 0 0 0 3px var(--accent), 0 8px 18px var(--accent-shadow); }
@@ -242,7 +261,7 @@ export default function Booth() {
 
         @media (max-width: 760px) {
           .booth-grid { grid-template-columns: 1fr; gap: 18px; }
-          .booth-screen { aspect-ratio: 3 / 4; max-height: 62dvh; }
+          .booth-tip { display: flex !important; }
           .booth-controls { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; margin: 0;
             padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--bar-bg);
             backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--glass-border); }
@@ -251,12 +270,33 @@ export default function Booth() {
           .booth-content { padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; }
           .booth-intro { margin-bottom: 16px !important; }
         }
+        /* Phone held sideways: viewfinder fills the height, controls move to the right edge. */
+        @media (orientation: landscape) and (max-height: 520px) {
+          .booth-intro, .booth-tip { display: none !important; }
+          .booth-header { padding-top: 6px !important; padding-bottom: 2px !important; }
+          .booth-header img { width: 36px !important; }
+          .booth-content { padding: 4px 0 24px !important; width: calc(100% - 32px - 116px - env(safe-area-inset-right)) !important; margin-left: max(16px, env(safe-area-inset-left)) !important; }
+          .booth-grid { grid-template-columns: 1fr; gap: 16px; }
+          .booth-cam { width: fit-content; max-width: 100%; margin: 0 auto; }
+          .booth-screen { width: auto; height: calc(100dvh - 120px); max-width: 100%; }
+          .vt-camera-top { height: 38px; }
+          .vt-camera-body { padding: 10px; }
+          .booth-controls { position: fixed; top: 0; bottom: 0; right: 0; left: auto; z-index: 20; margin: 0; width: calc(116px + env(safe-area-inset-right));
+            grid-template-columns: 1fr; grid-template-rows: 1fr auto 1fr; justify-items: center; gap: 10px;
+            padding: 12px calc(10px + env(safe-area-inset-right)) 12px 10px; background: var(--bar-bg);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-left: 1px solid var(--glass-border); border-top: none; }
+          .booth-controls > div { justify-self: center !important; align-self: center; }
+          .booth-controls > div:first-child { align-self: start; }
+          .booth-controls > div:last-child { align-self: end; }
+          .booth-btn { padding: 0 10px; font-size: 12px; height: 42px; }
+          .booth-thumbs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
         @media (prefers-reduced-motion: reduce) { .booth-flash, .booth-count { animation: none; } }
       `}</style>
 
       <div style={{ position: "fixed", inset: 0, background: tpl.theme ? "var(--bg)" : "url('/background.png') center/cover no-repeat", zIndex: -1, pointerEvents: "none" }} />
 
-      <header style={headerStyle}>
+      <header className="booth-header" style={headerStyle}>
         <Link to="/select" aria-label="Back to templates" style={backLinkStyle}>
           <span aria-hidden="true">←</span> Back
         </Link>
@@ -275,12 +315,15 @@ export default function Booth() {
           <p style={eyebrowStyle}>{copy.eyebrow}</p>
           <h1 style={titleStyle}>{copy.title}</h1>
           <p style={{ color: "var(--muted)", fontSize: 15, lineHeight: 1.6, margin: 0, maxWidth: 440 }}>{copy.subtitle}</p>
+          <p className="booth-tip" style={tipStyle}>
+            <span aria-hidden="true" style={{ fontSize: 18 }}>↻</span> Turn your phone sideways for a wider landscape selfie.
+          </p>
         </section>
 
         <div className="booth-grid">
           <section aria-label="Camera" style={{ minWidth: 0 }}>
             {vintage ? (
-              <div className="vt-camera">
+              <div className="vt-camera booth-cam">
                 <div className="vt-camera-top" aria-hidden="true">
                   <span className="vt-dial" />
                   <span className="vt-viewfinder" />
@@ -290,7 +333,7 @@ export default function Booth() {
                 <div className="vt-camera-body">{screen}</div>
               </div>
             ) : (
-              <div style={{ borderRadius: 14, boxShadow: "0 8px 24px rgba(0,0,0,0.15)" }}>{screen}</div>
+              <div className="booth-cam" style={{ borderRadius: 14, boxShadow: "0 8px 24px rgba(0,0,0,0.15)" }}>{screen}</div>
             )}
 
             <div className="booth-controls" style={{ ["--bar-bg" as string]: vintage ? "rgba(42,15,23,.9)" : "rgba(255,250,248,.92)" }}>
@@ -379,6 +422,7 @@ export default function Booth() {
   );
 }
 
+const tipStyle: CSSProperties = { display: "none", alignItems: "center", gap: 8, margin: "12px 0 0", padding: "8px 12px", borderRadius: 12, border: "1px solid var(--glass-border)", color: "var(--ink)", fontSize: 13, width: "fit-content" };
 const pageStyle: CSSProperties = { minHeight: "100dvh", color: "var(--ink)", fontFamily: "var(--body)", overflowX: "hidden" };
 const headerStyle: CSSProperties = {
   width: "min(1120px, calc(100% - 32px))",
