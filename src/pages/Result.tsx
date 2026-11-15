@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { templates } from "../components/template";
+import { themeVars, useThemeBody } from "../components/theme";
+import { applyVintage } from "../components/vintage";
 
 type Photo = { id: string; dataURL: string };
 type LocationState = { photos?: Photo[] };
@@ -22,6 +24,9 @@ export default function Result() {
     [state?.photos, tpl.slots.length]
   );
 
+  useThemeBody(tpl.theme);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
+
   const buildCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -31,7 +36,7 @@ export default function Result() {
     const build = buildCanvasRef.current;
     build.width = tpl.size.w;
     build.height = tpl.size.h;
-    const ctx = build.getContext("2d");
+    const ctx = build.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
     let cancelled = false;
@@ -61,6 +66,7 @@ export default function Result() {
         if (s.r) { roundRect(ctx, x, y, w, h, s.r); ctx.save(); ctx.clip(); }
         ctx.drawImage(img, dx, dy, dw, dh);
         if (s.r) ctx.restore();
+        if (tpl.look === "vintage") applyVintage(ctx, x, y, w, h);
       }
 
       const frame = await loadImg(tpl.frame);
@@ -85,68 +91,94 @@ export default function Result() {
   }, [tpl, shots]);
 
   const noPhotos = shots.length === 0;
+  const vintage = tpl.look === "vintage";
+
+  const download = () => {
+    const url = buildCanvasRef.current?.toDataURL("image/png");
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${tpl.name.replace(/\s+/g, "_")}.png`;
+    a.click();
+  };
 
   return (
-    <main style={{ position: "relative", minHeight: "100dvh" }}>
+    <main style={{ position: "relative", minHeight: "100dvh", color: "var(--ink)", fontFamily: "var(--body)", overflowX: "hidden", ...themeVars(tpl.theme) }}>
+      <style>{`
+        .rs-slot { width: min(${PREVIEW_MAX_W + 40}px, 82vw); height: 16px; border-radius: 10px; margin: 0 auto;
+          background: linear-gradient(#12060a, #2a0f17); box-shadow: inset 0 3px 6px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.12); position: relative; z-index: 2; }
+        .rs-print-clip { overflow: hidden; margin-top: -8px; padding: 0 12px 24px; }
+        .rs-print { animation: rs-eject 1.6s cubic-bezier(.22,.9,.24,1) both, rs-develop 3.2s ease-out .9s both; }
+        @keyframes rs-eject { from { transform: translateY(-102%); } to { transform: translateY(0); } }
+        @keyframes rs-develop {
+          from { filter: sepia(1) brightness(1.55) contrast(.45) saturate(.3) blur(1.5px); }
+          to { filter: none; }
+        }
+        .rs-btn { box-sizing: border-box; border: none; border-radius: 14px; padding: 0 22px; height: 52px; font: 700 15px var(--body); cursor: pointer; text-decoration: none; touch-action: manipulation; display: inline-flex; align-items: center; justify-content: center; }
+        @media (prefers-reduced-motion: reduce) { .rs-print { animation: none; } }
+      `}</style>
+
       {/* fixed bg */}
       <div style={{
         position: "fixed", inset: 0,
-        background: "url('/background.png') center/cover no-repeat",
+        background: tpl.theme ? "var(--bg)" : "url('/background.png') center/cover no-repeat",
         zIndex: -1, pointerEvents: "none",
       }} />
 
       {/* header */}
       <header style={{
-        position: "sticky", top: 0, zIndex: 5,
         display: "grid", placeItems: "center",
-        paddingTop: 16, paddingBottom: 8,
+        paddingTop: "calc(16px + env(safe-area-inset-top))", paddingBottom: 8,
       }}>
         <Link to="/" aria-label="Back to menu" style={{ textDecoration: "none" }}>
-          <img src="/logo.png" alt="" style={{ width: 72, height: "auto", userSelect: "none" }} />
+          <img src="/logo.png" alt="" style={{ width: 64, height: "auto", userSelect: "none" }} />
         </Link>
-        <h2 style={{ margin: 6, color: "#111" }}>Your Photocard</h2>
+        {vintage && <p style={{ margin: "10px 0 0", color: "var(--eyebrow)", fontSize: 11, fontWeight: 800, letterSpacing: ".2em" }}>STEP 2 · FRESH FROM THE DARKROOM</p>}
+        <h2 style={{ margin: 6, color: "var(--ink)", fontFamily: "var(--display)", fontWeight: 500, fontSize: vintage ? "clamp(1.8rem, 7vw, 2.6rem)" : undefined, letterSpacing: "-.02em" }}>
+          {vintage ? <>Your <em style={{ fontWeight: 400 }}>photostrip</em> ✦</> : "Your Photocard"}
+        </h2>
       </header>
 
       {/* contents */}
       <div style={{
-        minHeight: "calc(100dvh - 96px)",
-        padding: 24, display: "grid", placeItems: "center",
-        fontFamily: "system-ui, sans-serif",
+        padding: "16px 16px calc(32px + env(safe-area-inset-bottom))",
+        display: "grid", placeItems: "center",
       }}>
-        <div style={{ display: "grid", gap: 16, placeItems: "center", textAlign: "center" }}>
-          {/* Image preview */}
-          <canvas
-            ref={previewCanvasRef}
-            style={{
-              display: "block",
-              width: "100%",      
-              maxWidth: PREVIEW_MAX_W, 
-              height: "auto",     
-              background: "transparent",
-              boxShadow: "none",
-              borderRadius: 0,
-            }}
-          />
+        <div style={{ display: "grid", gap: 16, placeItems: "center", textAlign: "center", width: "100%" }}>
+          <div style={{ width: "100%" }}>
+            {vintage && <div className="rs-slot" aria-hidden="true" />}
+            <div className={vintage ? "rs-print-clip" : undefined}>
+              <canvas
+                ref={previewCanvasRef}
+                className={vintage ? "rs-print" : undefined}
+                style={{
+                  display: "block",
+                  margin: "0 auto",
+                  width: "min(100%, 72vw)",
+                  maxWidth: PREVIEW_MAX_W,
+                  height: "auto",
+                  background: "transparent",
+                  boxShadow: vintage ? "0 18px 40px rgba(0,0,0,.45)" : "none",
+                  borderRadius: 0,
+                }}
+              />
+            </div>
+          </div>
+
+          {vintage && !noPhotos && (
+            <p style={{ margin: 0, color: "var(--muted)", fontSize: 14, maxWidth: 320 }}>
+              Developed on warm vintage film. Save it and share the love.
+            </p>
+          )}
 
           {!noPhotos && (
-            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-              <a
-                onClick={() => {
-                  const url = buildCanvasRef.current?.toDataURL("image/png");
-                  if (!url) return;
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `${tpl.name.replace(/\s+/g, "_")}.png`;
-                  a.click();
-                }}
-                style={{
-                  background: "#e17b94", color: "#fff",
-                  borderRadius: 10, padding: "12px 18px",
-                  fontWeight: 800, cursor: "pointer", textDecoration: "none",
-                }}
-              >
+            <div style={{ display: "grid", gap: 8, width: "min(100%, 320px)" }}>
+              <button onClick={download} className="rs-btn" style={{ background: "var(--accent)", color: "var(--accent-ink)", boxShadow: "0 8px 18px var(--accent-shadow)" }}>
                 Download PNG
-              </a>
+              </button>
+              <Link to={`/upload/${tpl.id}`} className="rs-btn" style={{ background: "transparent", color: "var(--ink)", border: "1px solid var(--glass-border)" }}>
+                Make another
+              </Link>
             </div>
           )}
         </div>

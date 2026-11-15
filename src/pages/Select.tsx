@@ -1,20 +1,22 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { templates } from "../components/template";
+import { themeVars, useThemeBody } from "../components/theme";
 
 export default function Select() {
   const [i, setI] = useState(0);
   const t = templates[i];
   const nav = useNavigate();
+  useThemeBody(t.theme);
 
   return (
-    <main style={{ position: "relative", minHeight: "100dvh", overflow: "hidden" }}>
+    <main style={{ position: "relative", minHeight: "100dvh", overflow: "hidden", color: "var(--ink)", ...themeVars(t.theme) }}>
       {/* fixed background */}
       <div
         style={{
           position: "fixed",
           inset: 0,
-          background: "url('/background.png') center/cover no-repeat",
+          background: t.theme ? "var(--bg)" : "url('/background.png') center/cover no-repeat",
           zIndex: -1,
           willChange: "transform",
         }}
@@ -26,7 +28,7 @@ export default function Select() {
         aria-label="Back to landing"
         style={{
           position: "absolute",
-          top: 16,
+          top: "calc(12px + env(safe-area-inset-top))",
           left: "50%",
           transform: "translateX(-50%)",
           width: 70,
@@ -50,9 +52,9 @@ export default function Select() {
           minHeight: "100dvh",
           display: "grid",
           placeItems: "center",
-          padding: 24,
+          padding: "88px 16px calc(20px + env(safe-area-inset-bottom))",
           textAlign: "center",
-          fontFamily: "system-ui, sans-serif",
+          fontFamily: "var(--body)",
         }}
       >
         <div style={{ display: "grid", gap: 12, alignItems: "center", justifyItems: "center", maxWidth: 520, width: "100%" }}>
@@ -71,21 +73,23 @@ export default function Select() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                height: "min(78vh, 560px)",
+                height: "min(46dvh, 560px)",
                 flex: "1 1 0",
+                minWidth: 0,
               }}
             >
               <img
                 src={t.thumb || t.frame}
                 alt={t.name}
                 style={{
-                  height: "90%",          
+                  height: "100%",
+                  maxWidth: "100%",
                   width: "auto",
                   objectFit: "contain",
                   display: "block",
                   border: "none",
-                  boxShadow: "none",
-                  background: "transparent",
+                  background: t.theme ? "#efe3d6" : "transparent",
+                  boxShadow: t.theme ? "0 14px 34px rgba(0,0,0,.4)" : "none",
                 }}
               />
             </div>
@@ -99,7 +103,7 @@ export default function Select() {
           </div>
 
           {/* title & details */}
-          <h2 style={{ margin: "8px 0 0" }}>{t.name}</h2>
+          <h2 style={{ margin: "8px 0 0", fontFamily: "var(--display)", fontWeight: t.theme ? 500 : undefined }}>{t.name}</h2>
           <p style={{ margin: 0, opacity: 0.75 }}>
             {t.shots} photos • export {t.size.w}×{t.size.h}px
           </p>
@@ -129,8 +133,10 @@ export default function Select() {
 
 
 const btnPrimary: React.CSSProperties = {
-  background: "#e17b94",
-  color: "#fff",
+  background: "var(--accent)",
+  color: "var(--accent-ink)",
+  minHeight: 50,
+  fontFamily: "inherit",
   border: "none",
   borderRadius: 16,
   padding: "14px 28px",
@@ -146,6 +152,8 @@ const btnLight: React.CSSProperties = {
   color: "#111",
   border: "1px solid #ddd",
   borderRadius: 16,
+  minHeight: 50,
+  fontFamily: "inherit",
   padding: "14px 28px",
   fontSize: "1rem",
   fontWeight: 700,
@@ -158,8 +166,9 @@ const arrowBase: React.CSSProperties = {
   background: "rgba(255,255,255,0.85)",
   border: "1px solid #ddd",
   borderRadius: "50%",
-  width: 48,
-  height: 48,
+  width: 44,
+  height: 44,
+  flex: "none",
   fontSize: "1.5rem",
   fontWeight: 600,
   color: "#333",
